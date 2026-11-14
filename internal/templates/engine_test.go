@@ -195,11 +195,25 @@ func TestRenderEmailPlainFollowsTheme(t *testing.T) {
 			t.Errorf("plain: unexpected %q in %s", unwanted, e.HTML)
 		}
 	}
+	// Its text sits a little in from the window's edge, as a mail app sets a personal email.
+	if !strings.Contains(e.HTML, `body{margin:0;padding:8px}`) || !strings.Contains(e.HTML, `<body style="margin:0;padding:8px;`) {
+		t.Errorf("plain: body inset: %s", e.HTML)
+	}
+
+	// An email forwarded whole keeps its own inline colours, so the message stays light.
+	fwd := parts
+	fwd.Forwarded = &Forwarded{FromEmail: "jana@firma.cz", At: at, Subject: "Order",
+		HTML: `<p style="color:#333333">Hello</p>`}
+	e = c.RenderEmail(DefaultDesign(), fwd)
+	if !strings.Contains(e.HTML, `<meta name="color-scheme" content="light only">`) || strings.Contains(e.HTML, "light dark") ||
+		!strings.Contains(e.HTML, "color:#171717") {
+		t.Errorf("forwarded: color scheme: %s", e.HTML)
+	}
 
 	d := DefaultDesign()
 	d.Layout.Style = "branded"
 	e = c.RenderEmail(d, parts)
-	for _, want := range []string{`<meta name="color-scheme" content="light only">`, "color:#171717", "background:#FFFFFF"} {
+	for _, want := range []string{`<meta name="color-scheme" content="light only">`, "color:#171717", "background:#FFFFFF", `<body style="margin:0;padding:0;`} {
 		if !strings.Contains(e.HTML, want) {
 			t.Errorf("branded: missing %q", want)
 		}
@@ -302,6 +316,10 @@ func TestSurveyButtons(t *testing.T) {
 	h, txt := SurveyButtons("https://app.test/csat/tok?score=", "#2563EB")
 	if !strings.Contains(h, `href="https://app.test/csat/tok?score=5"`) || !strings.Contains(txt, "5 (Great): https://app.test/csat/tok?score=5") {
 		t.Fatalf("%s\n%s", h, txt)
+	}
+	// Each button is its own light chip, so its dark number reads in a dark-mode mail app too.
+	if n := strings.Count(h, "background-color:#FFFFFF;color:#0A0A0A"); n != 5 {
+		t.Errorf("buttons with a background: %d of 5: %s", n, h)
 	}
 }
 

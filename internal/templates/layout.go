@@ -123,15 +123,19 @@ func (c *Context) RenderEmail(d Design, p Parts) Email {
 		body = simpleBody(o, c, accent, font, p, footer, historyHTML)
 	}
 	// Plain reads like a person's own email, so it follows the reader's light or dark theme
-	// like one: no fixed text colour or frame. Branded and custom layouts draw a light card.
-	plain := !custom && o.Style != "branded"
+	// like one: no fixed text colour or frame, and the small inset a mail app gives a message.
+	// Branded and custom layouts draw a light card, and an email forwarded whole keeps its own
+	// colours, so those stay light.
+	plain := !custom && o.Style != "branded" && p.Forwarded == nil
 	scheme := `<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">`
+	bodyPad := "0"
 	if plain {
 		scheme = `<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">`
+		bodyPad = "8px"
 	}
 	doc := `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-		scheme + `<style>` + baseCSS(accent, font, plain) + `</style></head>` +
-		`<body style="margin:0;padding:0;-webkit-text-size-adjust:100%">` + body + `</body></html>`
+		scheme + `<style>` + baseCSS(accent, font, bodyPad, plain) + `</style></head>` +
+		`<body style="margin:0;padding:` + bodyPad + `;-webkit-text-size-adjust:100%">` + body + `</body></html>`
 
 	var text strings.Builder
 	text.WriteString(strings.TrimSpace(p.ContentText))
@@ -166,12 +170,12 @@ func (c *Context) fillWithSlots(src string, slots map[string]string) string {
 
 // baseCSS styles the message. Plain leaves the text colour to the reader's mail app, so
 // its quotes and code use colours that read on a light and a dark background.
-func baseCSS(accent, font string, plain bool) string {
+func baseCSS(accent, font, bodyPad string, plain bool) string {
 	ink, quote, codeBg := "color:#171717", "color:#525252", "#F5F5F5"
 	if plain {
 		ink, quote, codeBg = "", "color:#737373", "rgba(128,128,128,.15)"
 	}
-	return `body{margin:0;padding:0}` +
+	return `body{margin:0;padding:` + bodyPad + `}` +
 		`.od-body{font-family:` + font + `;font-size:14px;line-height:1.6;` + ink + `}` +
 		`.od-body p{margin:0 0 12px}` +
 		`.od-body a{color:` + accent + `}` +
@@ -332,7 +336,7 @@ func SurveyButtons(baseURL, accent string) (string, string) {
 	for n := 1; n <= 5; n++ {
 		u := html.EscapeString(baseURL + strconv.Itoa(n))
 		h.WriteString(`<td style="padding:0 6px 0 0"><a href="` + u + `" title="` + labels[n] + `" style="display:inline-block;width:44px;height:44px;line-height:42px;border:2px solid ` +
-			accent + `;border-radius:8px;color:#0A0A0A;text-decoration:none;font-weight:600;font-size:16px;text-align:center">` + strconv.Itoa(n) + `</a></td>`)
+			accent + `;border-radius:8px;background-color:#FFFFFF;color:#0A0A0A;text-decoration:none;font-weight:600;font-size:16px;text-align:center">` + strconv.Itoa(n) + `</a></td>`)
 		t.WriteString(strconv.Itoa(n) + " (" + labels[n] + "): " + baseURL + strconv.Itoa(n) + "\n")
 	}
 	h.WriteString(`</tr></table>`)
