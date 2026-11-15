@@ -401,6 +401,41 @@ function useMessageAddress(m: Message, receivedAt?: string | null) {
   return m.from_email || mb?.email || null;
 }
 
+/**
+ * The To header of an inbound email that names none of our addresses: a copy forwarded from another
+ * address, or one we got in Cc or Bcc. Null when it names the address the email was received at.
+ */
+export function originalRecipients(m: Message): { to: string[]; address: string } | null {
+  const at = m.received_at?.trim().toLowerCase();
+  if (m.direction !== "inbound" || !at) return null;
+  const to = m.to.map((a) => a.trim()).filter(Boolean);
+  return to.length > 0 && !to.some((a) => a.toLowerCase() === at) ? { to, address: at } : null;
+}
+
+/** Who an inbound email was written to when that is not us, and the address of ours that got it. */
+function OriginalRecipients({ to, address }: { to: string[]; address: string }) {
+  const { t } = useTranslation("inbox");
+  const first = to.length > 1 ? t("message.toAndOthers", { to: to[0], others: to.length - 1 }) : t("message.to", { to: to[0] });
+  const received = t("message.receivedAt", { address });
+  return (
+    <Tooltip
+      content={
+        <span className="block max-w-[320px] break-words font-normal leading-snug">
+          {t("message.to", { to: to.join(", ") })}
+          <br />
+          {received}
+        </span>
+      }
+    >
+      <span tabIndex={0} className="rounded-sm text-fg-4 outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--focus)]">
+        <span className="text-fg-3">{first}</span>
+        {" · "}
+        {received}
+      </span>
+    </Tooltip>
+  );
+}
+
 /** What can be done to a thread from its latest message. */
 export type ThreadActions = { reply: (th: Thread) => void; setStatus: (th: Thread, status: Thread["status"]) => void };
 
@@ -598,6 +633,7 @@ export const MessageItem = memo(function MessageItem({
     );
   const address = useMessageAddress(m, receivedAt);
   const inbound = m.direction === "inbound" && !note;
+  const originalTo = inbound ? originalRecipients(m) : null;
   // Loaded for this message, or for every email (Settings → Profile → Appearance).
   const loaded = useImagesLoadedFor(m.id);
   const remote = useAlwaysShowImages() || loaded;
@@ -647,7 +683,12 @@ export const MessageItem = memo(function MessageItem({
           ) : (
             <span className="min-w-0 truncate text-[11.5px] text-fg-3" data-ph-mask>
               {m.from_email}
-              {address && <span className="text-fg-4"> {t("message.toAddress", { address })}</span>}
+              {originalTo && " "}
+              {originalTo ? (
+                <OriginalRecipients {...originalTo} />
+              ) : (
+                address && <span className="text-fg-4"> {t("message.toAddress", { address })}</span>
+              )}
             </span>
           )}
         </div>
