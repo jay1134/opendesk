@@ -209,6 +209,10 @@ func TestRenderEmailPlainFollowsTheme(t *testing.T) {
 		!strings.Contains(e.HTML, "color:#171717") {
 		t.Errorf("forwarded: color scheme: %s", e.HTML)
 	}
+	// It keeps Plain's inset, so its text still sits in from the edge.
+	if !strings.Contains(e.HTML, `body{margin:0;padding:8px}`) || !strings.Contains(e.HTML, `<body style="margin:0;padding:8px;`) {
+		t.Errorf("forwarded: body inset: %s", e.HTML)
+	}
 
 	d := DefaultDesign()
 	d.Layout.Style = "branded"

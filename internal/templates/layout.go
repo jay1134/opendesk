@@ -125,12 +125,15 @@ func (c *Context) RenderEmail(d Design, p Parts) Email {
 	// Plain reads like a person's own email, so it follows the reader's light or dark theme
 	// like one: no fixed text colour or frame, and the small inset a mail app gives a message.
 	// Branded and custom layouts draw a light card, and an email forwarded whole keeps its own
-	// colours, so those stay light.
-	plain := !custom && o.Style != "branded" && p.Forwarded == nil
+	// colours, so those stay light; a forwarded Plain email keeps the inset all the same.
+	inset := !custom && o.Style != "branded"
+	plain := inset && p.Forwarded == nil
 	scheme := `<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">`
-	bodyPad := "0"
 	if plain {
 		scheme = `<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">`
+	}
+	bodyPad := "0"
+	if inset {
 		bodyPad = "8px"
 	}
 	doc := `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
