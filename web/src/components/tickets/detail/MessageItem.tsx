@@ -329,7 +329,7 @@ function Delivery({ m, onRetry }: { m: Message; onRetry?: () => void }) {
     );
   if (m.delivery_status === "sent")
     return (
-      <Tooltip content={t("message.deliveredTo", { to: m.to.join(", ") || t("composer.theCustomer") })}>
+      <Tooltip content={<span data-ph-mask>{t("message.deliveredTo", { to: m.to.join(", ") || t("composer.theCustomer") })}</span>}>
         <span className="flex items-center gap-1 text-[11px] text-fg-4 animate-fade-in">
           <Check className={`size-3 ${tone.green.text}`} /> {t("message.sent")}
         </span>
@@ -337,7 +337,7 @@ function Delivery({ m, onRetry }: { m: Message; onRetry?: () => void }) {
     );
   return (
     <span className="flex items-center gap-2">
-      <Tooltip content={m.delivery_error || t("message.refused")}>
+      <Tooltip content={<span data-ph-mask>{m.delivery_error || t("message.refused")}</span>}>
         <span className={`inline-flex h-5 items-center gap-1.5 rounded-sm px-1.5 text-[11px] font-medium ${tone.red.chip}`}>
           <span className={`size-1.5 rounded-full ${tone.red.solid}`} />
           {m.delivery_status === "bounced" ? t("message.bounced") : t("message.notDelivered")}
@@ -420,7 +420,7 @@ function OriginalRecipients({ to, address }: { to: string[]; address: string }) 
   return (
     <Tooltip
       content={
-        <span className="block max-w-[320px] break-words font-normal leading-snug">
+        <span className="block max-w-[320px] break-words font-normal leading-snug" data-ph-mask>
           {t("message.to", { to: to.join(", ") })}
           <br />
           {received}
@@ -768,9 +768,7 @@ export const MessageItem = memo(function MessageItem({
             )}
             {replyTo && (
               <Tooltip
-                content={
-                  m.reply_address ? t("message.replyToUsed") : t("message.replyToOther", { address: m.from_email })
-                }
+                content={<span data-ph-mask>{m.reply_address ? t("message.replyToUsed") : t("message.replyToOther", { address: m.from_email })}</span>}
               >
                 <span className="flex min-w-0 items-center gap-1.5">
                   <Reply className="size-3 shrink-0 text-fg-4" />

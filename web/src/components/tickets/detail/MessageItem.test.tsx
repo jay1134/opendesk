@@ -191,6 +191,18 @@ describe("MessageItem's original recipient", () => {
     expect(await line(m)).toBe("ada@example.com à orders@old.example +1 · reçu sur support@new.example");
   });
 
+  it("keeps the full To list out of session replay when its tooltip opens", async () => {
+    await line(inbound({ to: ["orders@old.example", "lea@old.example"] }));
+    const trigger = document.querySelector<HTMLElement>("header [data-ph-mask] [tabindex='0']");
+    await act(async () => trigger!.focus());
+    const tip = document.querySelector("[data-radix-popper-content-wrapper]");
+    const walk = document.createTreeWalker(tip!, NodeFilter.SHOW_TEXT);
+    const shown: Node[] = [];
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent?.includes("lea@old.example")) shown.push(n);
+    expect(shown.length).toBeGreaterThan(0);
+    for (const n of shown) expect(n.parentElement!.closest("[data-ph-mask]")).not.toBeNull();
+  });
+
   it("leaves outbound mail, and mail with no recorded receiving address, alone", () => {
     expect(originalRecipients(inbound({ to: ["orders@old.example"] }))).toEqual({ to: ["orders@old.example"], address: "support@new.example" });
     expect(originalRecipients(inbound({ to: ["orders@old.example"], received_at: "" }))).toBeNull();
