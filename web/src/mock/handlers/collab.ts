@@ -667,7 +667,7 @@ function status(ws: WsData): CollabStatus {
   const p = new URLSearchParams(location.search).get("mock_collab") ?? ws.collabOff ?? null;
   const workspaceOff = ws.workspace.settings.mail_enabled === false;
   const off = p === "off" || p === "plan" || p === "disabled" || workspaceOff;
-  return { enabled: !off, reason: workspaceOff && !p ? "workspace_disabled" : off ? (p === "plan" ? "plan" : "disabled") : null, providers: { google: true, microsoft: true, imap: true }, accounts: off ? 0 : visibleAccounts(ws).length, storage: storage() };
+  return { enabled: !off, reason: workspaceOff && !p ? "workspace_disabled" : off ? (p === "plan" ? "plan" : "disabled") : null, providers: { google: true, microsoft: true, imap: true }, google_client_id: "000000000000-opendesk-collab.apps.googleusercontent.com", accounts: off ? 0 : visibleAccounts(ws).length, storage: storage() };
 }
 
 /**
@@ -946,6 +946,8 @@ function detailOut(ws: WsData, t: ThreadMeta): MailThreadDetail {
     comments: t.comments,
     shares: t.shares,
     can_act: canActRole(ws, db.meId),
+    // The demo keeps no AI draft records once a draft is gone.
+    unused_ai_drafts: [],
   };
 }
 

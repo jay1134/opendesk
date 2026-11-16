@@ -202,7 +202,15 @@ export type TeamBody = Partial<
 export type BrandBody = Partial<Pick<T.Brand, "name" | "slug" | "color" | "locale">> & {
   help_center?: Partial<Pick<T.Brand["help_center"], "enabled" | "title">>;
   /** Omit the secret to keep the saved one (same issuer and client id). */
-  portal_auth?: { mode: T.PortalAuthMode; issuer?: string; client_id?: string; client_secret?: string; create_contacts?: boolean };
+  portal_auth?: {
+    mode: T.PortalAuthMode;
+    protocol?: T.PortalSsoProtocol;
+    issuer?: string;
+    client_id?: string;
+    client_secret?: string;
+    create_contacts?: boolean;
+    saml?: Pick<T.PortalSamlSettings, "idp_entity_id" | "idp_sso_url" | "idp_certificates"> & { email_attribute?: string; name_attribute?: string };
+  };
 };
 export type WidgetBody = { brand_id?: string; name?: string; team_id?: string | null; bot_id?: string | null; settings?: Partial<T.WidgetSettings> };
 export type RoutingRuleBody = Partial<Pick<T.RoutingRule, "name" | "enabled" | "match" | "conditions" | "team_id" | "skill_ids">>;
@@ -626,6 +634,10 @@ export const api = {
       get: (id: string) => http.get<{ draft: T.ReplyDraft | null }>(`/v1/tickets/${id}/reply-draft`),
       save: (id: string, b: { body_html: string; attachment_ids: string[] }) => http.put<{ draft: T.ReplyDraft | null }>(`/v1/tickets/${id}/reply-draft`, b),
       discard: (id: string) => http.del(`/v1/tickets/${id}/reply-draft`),
+      schedule: (id: string, send_at: string, reply?: SendMessageBody) =>
+        http.post<{ draft: T.ReplyDraft | null }>(`/v1/tickets/${id}/reply-draft/schedule`, { send_at, reply }),
+      unschedule: (id: string) => http.del<{ draft: T.ReplyDraft | null }>(`/v1/tickets/${id}/reply-draft/schedule`),
+      sendScheduled: (id: string) => http.create<T.Message>(`/v1/tickets/${id}/reply-draft/send`, {}),
     },
     threads: (id: string) => http.get<{ data: T.Thread[] }>(`/v1/tickets/${id}/threads`),
     startThread: (id: string, b: StartThreadBody) => http.create<{ thread: T.Thread; message: T.Message }>(`/v1/tickets/${id}/threads`, b),

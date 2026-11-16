@@ -182,7 +182,27 @@ export type HelpDomainRecord = { type: "TXT" | "CNAME"; name: string; value: str
 /** How customers sign in to a brand's portal: a password, the company's identity provider, or either. */
 export type PortalAuthMode = "local" | "oidc" | "local_and_oidc";
 /** What GET /v1/brands/{id}/portal/auth returns (admin). The client secret is never returned. */
-export type PortalAuthSettings = { mode: PortalAuthMode; issuer: string; client_id: string; secret_configured: boolean; create_contacts: boolean };
+export type PortalAuthSettings = {
+  mode: PortalAuthMode;
+  /** The kind of identity provider; oidc until a brand sets up SAML. */
+  protocol: PortalSsoProtocol;
+  issuer: string;
+  client_id: string;
+  secret_configured: boolean;
+  create_contacts: boolean;
+  saml: PortalSamlSettings;
+};
+export type PortalSsoProtocol = "oidc" | "saml";
+/** A brand's SAML provider, and what to enter at it (the service provider's entity id and ACS URL). */
+export type PortalSamlSettings = {
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_certificates: string;
+  email_attribute: string;
+  name_attribute: string;
+  sp_entity_id: string;
+  acs_url: string;
+};
 /** A brand whose help center is on: where a portal invitation can lead (contracts/customer-portal.md "Invitations"). */
 export type PortalBrand = { id: string; name: string; slug: string; auth_mode: PortalAuthMode; default: boolean };
 /** A contact's customer portal access, as members see it. */
@@ -1505,12 +1525,13 @@ export type AuditLog = {
   ip: string;
   created_at: string;
 };
-export type NotificationType = "assigned" | "new_ticket" | "mentioned" | "customer_replied" | "thread_replied" | "sla_breached" | "ai_handoff" | "ai_cap_reached" | "ai_balance_low" | "ai_balance_out" | "auto_recharge_failed" | "ai_key_failed" | "team_joined" | "import_finished" | "support_channel_unhealthy" | "collab_assigned" | "collab_mention" | "wiki_mention" | "wiki_comment" | "wiki_reminder";
+export type NotificationType = "assigned" | "new_ticket" | "mentioned" | "customer_replied" | "thread_replied" | "sla_breached" | "scheduled_reply_failed" | "ai_handoff" | "ai_cap_reached" | "ai_balance_low" | "ai_balance_out" | "auto_recharge_failed" | "ai_key_failed" | "team_joined" | "import_finished" | "support_channel_unhealthy" | "collab_assigned" | "collab_mention" | "wiki_mention" | "wiki_comment" | "wiki_reminder";
 /** `ai_cap_reached`: data `{cap_usd}`, ticket null; the widget agent reached `widget_monthly_cap_usd` (once a month, owners and admins).
  * `ai_balance_low` / `ai_balance_out`: data `{remaining_usd}` (US dollars); `auto_recharge_failed`: data `{reason: AutoRechargeFailure}` (billing, owners and admins, ticket null).
  * `ai_key_failed`: data `{provider: AIKeyKind, reason: "rejected" | "no_funds"}`; the workspace's own AI key failed (at most hourly, owners and admins, ticket null).
  * `thread_replied`: data `{message_id, thread_id, subject, preview, from: {name, email}}`; someone outside the team answered a third-party thread on a ticket assigned to you.
  * `team_joined`: data `{team_id, team: {id, name, private}, user: {id, name}, by}`; an admin joined a team you lead (ticket null).
+ * `scheduled_reply_failed`: data `{reason: ScheduledReplyError}`; a reply you scheduled did not go out and is your draft again (ticket null when you can no longer see it).
  * `support_channel_unhealthy`: data `{connection_id, name, provider, status, detail}`; a provider connection stayed unhealthy for 15 minutes (owners and admins, ticket null).
  * `import_finished`: data `{import_id, source, source_name, account, status: "completed" | "failed" | "needs_credentials", tickets, updated, articles, failed, error}`;
  * a history import you started ended or paused for new credentials (contracts/imports.md, ticket null). */
@@ -2621,7 +2642,13 @@ export type ReplyDraft = {
   body_html: string;
   attachments: Attachment[];
   updated_at: string;
+  schedule?: { send_at: string; cc: string[]; bcc: string[]; status: TicketStatus | null; mailbox_id: string } | null;
+  /** Why the scheduled reply did not go out, or empty. */
+  send_error?: ScheduledReplyError | "";
 };
+
+/** Why a scheduled reply did not go out (contracts/api.md "Reply drafts"). */
+export type ScheduledReplyError = "merged" | "not_visible" | "cannot_send_from" | "member_gone" | "refused" | "failed";
 
 /** Ollie's suggested reply on an email ticket (contracts/agent.md "Email"). */
 export type SuggestedReply = {
@@ -2876,7 +2903,7 @@ export type BotBody = { name: string; role?: string; language?: string; look?: B
 export type BotDraft = { name?: string; role?: string; language?: string; personality?: Partial<BotPersonality> };
 
 // History imports (contracts/imports.md).
-export type ImportSource = "zendesk" | "helpscout" | "freshdesk" | "intercom" | "front" | "csv";
+export type ImportSource = "zendesk" | "helpscout" | "freescout" | "freshdesk" | "intercom" | "front" | "csv";
 export type ImportStatus = "running" | "paused" | "completed" | "failed" | "canceled" | "undoing" | "undone";
 export type ImportCounts = {
   tickets: number;
@@ -3323,6 +3350,8 @@ export type MailThreadAIDraft = {
   /** Its first lines. */
   snippet: string;
   to: MailAddress[];
+  /** Its AI draft record (feedback names it once the draft is discarded); null when none was kept. */
+  record_id: string | null;
 };
 
 export type MailAttachment = {
@@ -3391,7 +3420,7 @@ export type AIDraftFeedbackReason = "wrong_facts" | "wrong_tone" | "missing_info
 
 export type AIDraftFeedbackBody = {
   reason: AIDraftFeedbackReason;
-  /** At most 1,000 characters. */
+  /** At most 2,000 characters. */
   note?: string;
   /** Sanitized like mail. */
   better_answer_html?: string;
@@ -3455,6 +3484,8 @@ export type MailThreadDetail = {
   can_act: boolean;
   /** The ticket it answered or was answered from, when you see it (contracts/collab.md "Answering tickets"). */
   ticket?: { id: string; number: number; subject: string } | null;
+  /** AI drafts discarded, replaced or abandoned and gone, oldest first (contracts/collab.md "AI draft outcomes"). */
+  unused_ai_drafts?: (AIDraftRef & { outcome_at: string })[];
 };
 
 /** One address across the conversations you see (contracts/collab.md "People"). */
@@ -3482,6 +3513,8 @@ export type CollabStatus = {
   /** Why not: not on the plan, or off on this instance. */
   reason: "plan" | "disabled" | "workspace_disabled" | null;
   providers: { google: boolean; microsoft: boolean; imap: boolean };
+  /** The OAuth client a Google Workspace admin trusts so the domain's accounts can connect; null without Google. */
+  google_client_id: string | null;
   /** Accounts the caller sees. */
   accounts: number;
   storage: CollabStorage;
